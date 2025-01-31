@@ -1,5 +1,5 @@
 phylolm <- function(formula, data=list(), phy,
-	model=c("BM","OUrandomRoot","OUfixedRoot","lambda","kappa","delta","EB","trend"),
+	model=c("BM","OUrandomRoot","OUfixedRoot","lambda","kappa","delta","EB","trend","ILS"),
 	lower.bound=NULL, upper.bound=NULL, starting.value=NULL, measurement_error = FALSE,
 	boot=0,full.matrix = TRUE, save = FALSE, REML = FALSE, ...)
 {
@@ -92,13 +92,19 @@ phylolm <- function(formula, data=list(), phy,
   Tmax = mean(dis)
 
   ## Default bounds
-  bounds.default = matrix(c(1e-7/Tmax,50/Tmax,1e-7,1,1e-6,1,1e-5,3,-3/Tmax,0,1e-16,1e16), ncol=2, byrow=TRUE)
-  rownames(bounds.default) = c("alpha","lambda","kappa","delta","rate","sigma2_error")
+  bounds.default = matrix(c(1e-7/Tmax,50/Tmax,
+                            1e-7,1,
+                            1e-6,1,
+                            1e-5,3,
+                            -3/Tmax,0,
+                            1e-16,1e16,
+                            1e-16,1e16), ncol=2, byrow=TRUE)
+  rownames(bounds.default) = c("alpha","lambda","kappa","delta","rate","lambda_ILS","sigma2_error")
   colnames(bounds.default) = c("min","max")
 
   ## Default starting values
-  starting.values.default = c(0.5/Tmax,0.5,0.5,0.5,-1/Tmax,1)
-  names(starting.values.default) = c("alpha","lambda","kappa","delta","rate","sigma2_error")
+  starting.values.default = c(0.5/Tmax,0.5,0.5,0.5,-1/Tmax,1,1)
+  names(starting.values.default) = c("alpha","lambda","kappa","delta","rate","lambda_ILS","sigma2_error")
 
   ## Utility functions to get values
   get_value_param <- function(values, values.default, param) {
@@ -123,6 +129,7 @@ phylolm <- function(formula, data=list(), phy,
       if (model == "kappa") param <- "kappa"
       if (model == "delta") param <- "delta"
       if (model == "EB") param <- "rate"
+      if (model == "ILS") param <- "lambda_ILS"
       vals <- get_value_param(values, values.default, param)
     } else {
       vals <- NULL
@@ -141,6 +148,7 @@ phylolm <- function(formula, data=list(), phy,
   names(prm) = model # good for lambda, kappa, delta
   if (model %in% OU) names(prm) = "alpha"
   if (model == "EB") names(prm) = "rate"
+  if (model == "ILS") names(prm) = "lambda_ILS"
   if (measurement_error) {
     if (model %in% c("BM","trend")) names(prm) = "sigma2_error"
     else prm[["sigma2_error"]] = starting.value[2]
@@ -502,6 +510,7 @@ print.phylolm <- function(x, digits = max(3, getOption("digits") - 3), ...){
     if (x$model %in% c("OUrandomRoot","OUfixedRoot")) cat("alpha:",x$optpar)
     if (x$model %in% c("lambda","kappa","delta")) cat(x$model,":",x$optpar)
     if (x$model=="EB") cat("rate:",x$optpar)
+    if (x$model=="ILS") cat("lambda_ILS:",x$optpar)
     cat("\n")
   }
   cat("sigma2:",x$sigma2,"\n")
@@ -631,16 +640,16 @@ nobs.phylolm <- function(object, ...){
 ################################################
 predict.phylolm <- function(object, newdata=NULL, se.fit = FALSE, na.action = na.omit, ...){
   se = rep(NA, object$n)
-  
+
   # Standard error of prediction is computed as follows:
   # V(predictor) = Var(x*bhat) = x*V(bhat)*t(x)
   # SE(predictor) = sqrt(V(predictor))
-  
+
   if (object$model=="trend")
     stop("Predicting for trend model has not been implemented.")
   if(is.null(newdata)) {
     predictor <- fitted(object)
-    if (se.fit) 
+    if (se.fit)
       for (i in 1:object$n) se[i] = sqrt(as.numeric(t(object$X[i,]) %*% object$vcov %*% object$X[i,]))
   }
   else{
@@ -649,14 +658,14 @@ predict.phylolm <- function(object, newdata=NULL, se.fit = FALSE, na.action = na
 
     # use model.frame() to allow na.action argument:
     X = model.matrix(delete.response(terms(as.formula(formula(object)))),
-                     data = model.frame(as.formula(formula(object)), 
+                     data = model.frame(as.formula(formula(object)),
 					newdata, na.action = na.action))
-	  
+
     predictor <- X %*% coef(object)
-    if (se.fit) 
+    if (se.fit)
       for (i in 1:nrow(X)) se[i] = sqrt(as.numeric(t(X[i,]) %*% object$vcov %*% X[i,]))
   }
-  
+
   if (se.fit) list(fit = predictor, se.fit = se, df = object$n - object$d, residual.scale = sd(object$residuals))
   else predictor
 }
