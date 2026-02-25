@@ -179,10 +179,15 @@ transf.branch.lengths <-
   ## GC model
   if (model=="GC") {
     lambda_GC <- p$lambda_GC
-    coal_proba <- function(t) return(1 - exp(-t))
+    coal_proba <- function(t) return(- expm1(-t)) # very accurate if |t|<<1: to avoid numerical errors with tiny edge lengths
+    # ex: 1 - exp(-1e-17) gives 0; -expm1(-1e-17) gives 1e-17.
     distFromRoot <- pruningwise.distFromRoot(phy)
     edge.length <- phy$edge.length + (lambda_GC - 1) * (coal_proba(distFromRoot[des]) - coal_proba(distFromRoot[anc])) # note: this is zero for a zero length branch
-    edge.length[externalEdge] <- edge.length[externalEdge] + 1 + (lambda_GC - 1) * (1 - coal_proba(distFromRoot[des[externalEdge]]))
+    # use more accurate alternative below, either if t_c or t_p are small, or if l=t_c-t_p is small (like 0)?
+    #  phy$edge.length + (lambda_GC - 1) * coal_proba(edge.length) * exp(-distFromRoot[anc])
+    edge.length[externalEdge] <- edge.length[externalEdge] + 1 + (lambda_GC - 1) * exp(-distFromRoot[des[externalEdge]])
+    # according to the CG formula, 'edge.length[externalEdge] +' should be deleted. Why is it included?
+    # extra length for measurement error added below.
   }
 
   edge.length[externalEdge] = edge.length[externalEdge] + errEdge # add measurement errors to the tree
@@ -288,13 +293,13 @@ add.individuals <- function(phy, data, species_id = "species", sample_id = "samp
     data[[sample_id]] <- make.unique(data[[species_id]], sep = "_")
   }
   if (is.null(data[[sample_id]])) {
-    stop("The `data` data frame should contain a column named ", sample_id, " with sample ids. Plead adjust argument `sample_id` accordingly.")
+    stop("The `data` data frame should contain a column named ", sample_id, " with sample ids. Please adjust argument `sample_id` accordingly.")
   }
   if (length(data[[sample_id]]) != length(unique(data[[sample_id]]))){
     stop("The sample ids in column named ", sample_id, " should be unique identifiers of the samples.")
   }
   if (is.null(data[[species_id]])) {
-    stop("The `data` data frame should contain a column named ", species_id, " with species names for each sample. Plead adjust argument `species_id` accordingly.")
+    stop("The `data` data frame should contain a column named ", species_id, " with species names for each sample. Please adjust argument `species_id` accordingly.")
   }
   data_tree_cor <- match(data[[species_id]], phy$tip.label)
   if (anyNA(data_tree_cor)) {
@@ -304,7 +309,7 @@ add.individuals <- function(phy, data, species_id = "species", sample_id = "samp
   tree_data_cor <- match(phy$tip.label, data[[species_id]])
   if (anyNA(tree_data_cor)) {
     # Species in tree NOT in the data
-    warning("Species '", paste(unique(phy$tip.label[is.na(tree_data_cor)]), collapse = "', '"), "' are in the tree but not in the data. They will be droped from the final tree." )
+    warning("Species '", paste(unique(phy$tip.label[is.na(tree_data_cor)]), collapse = "', '"), "' are in the tree but not in the data. They will be dropped from the final tree." )
   }
   ## Make tree
   tree_rep <- phy
