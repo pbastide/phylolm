@@ -43,11 +43,11 @@ close to zero, but not strictly equal to zero to avoid numerical instabilities.
 # simulate species tree
 set.seed(1289)
 ntips <- 10
-tree <- ape::rphylo(ntips,0.1,0)
+tree <- ape::rphylo(ntips, 0.1, 0)
 plot(tree)
 # vector specifying how many individuals there are per species
-reps <- sample(1:3,ntips,replace=TRUE)
-species_vec <- rep(tree$tip.label,times=reps)
+reps <- sample(1:3, ntips, replace=TRUE)
+species_vec <- rep(tree$tip.label, times=reps)
 # add individuals on the tree
 tree_rep <- add.individuals(tree, species_vec)
 plot(tree_rep)
@@ -57,7 +57,8 @@ data(tomato)
 # species tree
 plot(tomato$phy)
 # create a tree with individuals as tips using the data frame
-tree_rep <- add.individuals(tomato$phy, tomato$data, species_id="Sp_AccessionID", sample_id="SampleID")
+tree_rep <- add.individuals(tomato$phy, tomato$data,
+                            species_id="Sp_AccessionID", sample_id="SampleID")
 plot(tree_rep)
 # fit GC model with measurement error on corolla diameter
 fit <- phylolm(CD~1, data=tomato$data, phy=tree_rep, model="GC", measurement_error=TRUE)

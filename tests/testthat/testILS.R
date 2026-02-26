@@ -39,9 +39,9 @@ test_that("GC fit", {
   #' @return probability of coalescence
   #'
   proba_coal <- function(t) {
-    # alternative: -expm1(-t) for more numerical stability with tiny edge lengths
+    # `-expm1(-t)` is an alternative to `1 - exp(-t)` for more numerical stability with tiny edge lengths
     # and for r(t) below, which needs proba_coal(t) / t
-    return(1 - exp(-t))
+    return(-expm1(-t))
   }
 
   #' @title Expected shared time ratio (r)

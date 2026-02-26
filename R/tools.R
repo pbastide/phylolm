@@ -182,12 +182,29 @@ transf.branch.lengths <-
     coal_proba <- function(t) return(- expm1(-t)) # very accurate if |t|<<1: to avoid numerical errors with tiny edge lengths
     # ex: 1 - exp(-1e-17) gives 0; -expm1(-1e-17) gives 1e-17.
     distFromRoot <- pruningwise.distFromRoot(phy)
-    edge.length <- phy$edge.length + (lambda_GC - 1) * (coal_proba(distFromRoot[des]) - coal_proba(distFromRoot[anc])) # note: this is zero for a zero length branch
+    # edge.length <- phy$edge.length + (lambda_GC - 1) * (coal_proba(distFromRoot[des]) - coal_proba(distFromRoot[anc])) # note: this is zero for a zero length branch
     # use more accurate alternative below, either if t_c or t_p are small, or if l=t_c-t_p is small (like 0)?
-    #  phy$edge.length + (lambda_GC - 1) * coal_proba(edge.length) * exp(-distFromRoot[anc])
-    edge.length[externalEdge] <- edge.length[externalEdge] + 1 + (lambda_GC - 1) * exp(-distFromRoot[des[externalEdge]])
+    edge.length <- phy$edge.length + (lambda_GC - 1) * coal_proba(phy$edge.length) * exp(-distFromRoot[anc])             # F1
+    edge.length[externalEdge] <- edge.length[externalEdge] + 1 + (lambda_GC - 1) * exp(-distFromRoot[des[externalEdge]]) # F2
     # according to the CG formula, 'edge.length[externalEdge] +' should be deleted. Why is it included?
-    # extra length for measurement error added below.
+    # There are two cases:
+    # 1. if there are several individuals in the population, we assume that they
+    #    are linked to the "species tip node" by a branch of length zero
+    #    (see `add.individuals` function).
+    #    Then we recover the formulas from the paper:
+    #    - F1 updates internal branches, and does nothing for external branches of length zero,
+    #    - F2 updates external branches, with edge.length[externalEdge] = 0
+    # 2. if there is only one individual in the population, formally the tree
+    #    has a degree one node between the population node and the individual tip.
+    #    Then:
+    #    - F1 updates the "internal" branch of non zero length that leads to
+    #      the (fictitious) degree one population node,
+    #    - F2 updates the "external" branch to its value with
+    #      `1 + (lambda_GC - 1) * exp(-distFromRoot[des[externalEdge]])`,
+    #      and "deletes" the (fictitious) degree one population node by merging
+    #      the two branches together with `edge.length[externalEdge] +`
+    #
+    #  extra length for measurement error added below.
   }
 
   edge.length[externalEdge] = edge.length[externalEdge] + errEdge # add measurement errors to the tree
